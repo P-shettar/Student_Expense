@@ -79,4 +79,38 @@ router.put('/settings', authMiddleware, async (req, res) => {
   }
 });
 
+// Add Funds to Wallet
+router.post('/add-funds', authMiddleware, async (req, res) => {
+  try {
+    const { amount } = req.body;
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+    const user = await User.findById(req.user.id);
+    user.walletBalance = (user.walletBalance || 0) + Number(amount);
+    await user.save();
+    res.json({ message: 'Funds added successfully', newBalance: user.walletBalance });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update Settings (Protected)
+router.put('/settings', authMiddleware, async (req, res) => {
+  try {
+    const { name, monthlyBudget, dailyLimit } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (name) user.name = name;
+    if (monthlyBudget !== undefined) user.monthlyBudget = Number(monthlyBudget);
+    if (dailyLimit !== undefined) user.dailyLimit = Number(dailyLimit);
+
+    await user.save();
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;

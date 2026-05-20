@@ -31,9 +31,16 @@ export default function Budget() {
 
   if (loading || !data.user) return <div className="p-8 text-center text-slate-400 font-sora animate-pulse">Loading Budget...</div>;
 
-  const totalSpent = data.transactions.reduce((acc, t) => acc + t.amount, 0);
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const thisMonthTransactions = (data.transactions || []).filter(t => {
+    const d = new Date(t.date || t.createdAt);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
+
+  const totalSpent = thisMonthTransactions.reduce((acc, t) => acc + (t.type?.toLowerCase() === 'credit' ? -t.amount : t.amount), 0);
   const remaining = Math.max(0, data.user.monthlyBudget - totalSpent);
-  const percentage = Math.min(100, Math.round((totalSpent / data.user.monthlyBudget) * 100));
+  const percentage = data.user.monthlyBudget > 0 ? Math.min(100, Math.round((totalSpent / data.user.monthlyBudget) * 100)) : 0;
 
   const chartData = [
     { name: 'Spent', value: totalSpent, color: 'var(--color-danger)' },

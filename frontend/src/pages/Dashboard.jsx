@@ -108,7 +108,7 @@ export default function Dashboard() {
 
   const { transactions, user, riskScore } = data;
   
-  const filteredTransactions = transactions.filter(t => {
+  const filteredTransactions = (transactions || []).filter(t => {
     const merchant = t.merchant || '';
     const category = t.category || '';
     return merchant.toLowerCase().includes(searchQuery) || 
@@ -116,23 +116,65 @@ export default function Dashboard() {
   });
   
   // Calculations
-  const totalSpent = filteredTransactions.reduce((acc, t) => acc + t.amount, 0);
-  const remaining = Math.max(0, user.monthlyBudget - totalSpent);
-  const biggestTx = filteredTransactions.length ? Math.max(...filteredTransactions.map(t => t.amount)) : 0;
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  
+  const thisMonthTransactions = filteredTransactions.filter(t => {
+    const d = new Date(t.date || t.createdAt);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
 
-  // Chart Data Preparation
-  const chartData = [...filteredTransactions].reverse().slice(0, 30).map(t => ({
-    date: new Date(t.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    amount: t.amount,
-    category: t.category
-  }));
+  const totalSpent = thisMonthTransactions.reduce((acc, t) => acc + (t.type?.toLowerCase() === 'credit' ? -t.amount : t.amount), 0);
+  const upiSpent = thisMonthTransactions.filter(t => t.type === 'Debit' && t.paymentMethod === 'UPI').reduce((acc, t) => acc + t.amount, 0);
+  const cashSpent = thisMonthTransactions.filter(t => t.type === 'Debit' && t.paymentMethod === 'Cash').reduce((acc, t) => acc + t.amount, 0);
+  const budget = user.monthlyBudget || 15000;
+  const remaining = Math.max(0, budget - totalSpent);
+  const biggestTx = thisMonthTransactions.filter(t => t.type === 'Debit').length ? Math.max(...thisMonthTransactions.filter(t => t.type === 'Debit').map(t => t.amount)) : 0;
 
-  const categoryTotals = filteredTransactions.reduce((acc, tx) => {
-    acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
+  // Chart Data Preparation - Group by Date
+  const dailyMap = {};
+  [...(transactions || [])].reverse().forEach(t => {
+    const dStr = t.date || new Date(t.createdAt).toISOString().split('T')[0];
+    if (!dailyMap[dStr]) {
+      dailyMap[dStr] = 0;
+    }
+    if (t.type !== 'Credit') {
+      dailyMap[dStr] += (t.amount || 0);
+    }
+  });
+
+  const chartData = Object.keys(dailyMap).sort().slice(-30).map(dStr => {
+    const [y, m, d] = dStr.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    return {
+      date: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      amount: dailyMap[dStr]
+    };
+  });
+
+  const categoryTotals = (transactions || []).reduce((acc, tx) => {
+    acc[tx.category] = (acc[tx.category] || 0) + (tx.amount || 0);
     return acc;
   }, {});
 
   const greeting = time.getHours() < 12 ? 'Good morning' : time.getHours() < 18 ? 'Good afternoon' : 'Good evening';
+
+  const generateDemoData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      // Create a dummy manual transaction loop to seed if backend seed script wasn't used
+      for(let i=0; i<15; i++) {
+        await axios.post('http://localhost:5000/api/transactions/add', {
+          amount: Math.floor(Math.random() * 1000) + 100,
+          merchant: 'Demo Merchant ' + i,
+          category: ['Food', 'Transport', 'Shopping', 'Entertainment'][Math.floor(Math.random()*4)]
+        }, { headers: { Authorization: token } });
+      }
+      window.location.reload();
+    } catch(err) {
+      console.error(err);
+    }
+  };
 
   return (
     <motion.div 
@@ -140,22 +182,32 @@ export default function Dashboard() {
       className="p-6 space-y-8 pb-24 md:pb-6 max-w-7xl mx-auto"
     >
       {/* Hero */}
-      <motion.div variants={FADE_UP} className="flex justify-between items-end">
+      <motion.div variants={FADE_UP} className="flex flex-col md:flex-row justify-between md:items-end gap-4">
         <div>
           <h1 className="font-sora text-3xl md:text-4xl font-semibold tracking-tight">
-            {greeting}, {user.name.split(' ')[0]} <span className="animate-pulse">👋</span>
+            {greeting}, {user.name ? user.name.split(' ')[0] : 'User'} <span className="animate-pulse">👋</span>
           </h1>
           <p className="text-slate-400 mt-2">
             {time.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} • {time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>
+        
+        {transactions.length === 0 && (
+          <button 
+            onClick={generateDemoData}
+            className="bg-[var(--color-primary)]/20 text-[var(--color-primary)] border border-[var(--color-primary)] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[var(--color-primary)] hover:text-white transition-colors"
+          >
+            Generate Demo Data
+          </button>
+        )}
       </motion.div>
 
       {/* Metrics Grid */}
-      <motion.div variants={FADE_UP} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <motion.div variants={FADE_UP} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
         <MetricCard title="Total Spent" value={totalSpent} color="primary" />
+        <MetricCard title="Cash Spent" value={cashSpent} color="warning" suffix={` (vs ₹${upiSpent} UPI)`} />
         <MetricCard title="Remaining Budget" value={remaining} color="secondary" />
-        <MetricCard title="Biggest Expense" value={biggestTx} color="warning" />
+        <MetricCard title="Biggest Expense" value={biggestTx} color="danger" />
         <MetricCard title="AI Risk Score" value={riskScore} isCurrency={false} color="danger" suffix="/100" />
       </motion.div>
 
@@ -264,7 +316,7 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <p className="font-medium text-white text-sm">{tx.merchant || 'Unknown'}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{tx.category || 'Other'} • {new Date(tx.createdAt).toLocaleDateString()}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{tx.category || 'Other'} • {tx.date || new Date(tx.createdAt).toISOString().split('T')[0]}</p>
                   </div>
                 </div>
                 
@@ -301,8 +353,8 @@ function MetricCard({ title, value, color, isCurrency = true, suffix = '' }) {
         `bg-[var(--color-${color})]`
       )}/>
       <p className="text-slate-400 font-medium text-sm mb-2 relative z-10">{title}</p>
-      <p className="font-mono text-3xl font-bold text-white relative z-10 tracking-tight">
-        {isCurrency && '₹'}{animatedValue.toLocaleString()}{suffix}
+      <p className="font-mono text-3xl font-bold text-white relative z-10 tracking-tight flex items-end gap-1">
+        {isCurrency && '₹'}{animatedValue.toLocaleString()}<span className="text-sm font-sans font-normal text-slate-400 pb-1">{suffix}</span>
       </p>
     </div>
   );

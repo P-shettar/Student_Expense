@@ -78,10 +78,43 @@ export default function Settings() {
             <input type="number" value={formData.dailyLimit} onChange={e => setFormData({...formData, dailyLimit: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--color-primary)] transition-colors"/>
           </div>
           
+          <div>
+            <label className="block text-sm text-slate-400 mb-2">AI Auto-Categorisation Model</label>
+            <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[var(--color-primary)] appearance-none">
+              <option className="bg-[#12121A]">Claude 3.5 Sonnet (Recommended)</option>
+              <option className="bg-[#12121A]">GPT-4o</option>
+              <option className="bg-[#12121A]">Gemini 1.5 Pro</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-slate-400 mb-2">Anomaly Detection Sensitivity</label>
+            <input type="range" min="1" max="100" defaultValue="5" className="w-full accent-[var(--color-primary)]" />
+            <div className="flex justify-between text-xs text-slate-500 mt-2">
+              <span>Conservative (1%)</span>
+              <span>Aggressive (10%)</span>
+            </div>
+          </div>
+          
           <button type="submit" disabled={saving} className="bg-[var(--color-primary)] hover:bg-[#7e76ff] text-white font-sora font-semibold py-3 px-8 rounded-xl flex items-center gap-2 transition-all shadow-[0_0_20px_var(--color-primary-glow)]">
             {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
             Save Changes
           </button>
+
+          <div className="pt-6 mt-6 border-t border-white/10 flex flex-col gap-4">
+            <button 
+              type="button" 
+              onClick={() => {
+                if (window.confirm('Are you sure? This will delete all your local data and log you out.')) {
+                  localStorage.clear();
+                  window.dispatchEvent(new Event('auth-change'));
+                  window.location.reload();
+                }
+              }} 
+              className="text-left w-max px-6 py-2 bg-[var(--color-danger)]/10 text-[var(--color-danger)] rounded-xl font-medium hover:bg-[var(--color-danger)]/20 transition-colors"
+            >
+              Delete Account / Clear Data
+            </button>
+          </div>
         </form>
       </motion.div>
     </motion.div>

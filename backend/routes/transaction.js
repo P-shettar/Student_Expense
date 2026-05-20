@@ -17,11 +17,13 @@ router.get('/', authMiddleware, async (req, res) => {
 // Add a manual transaction
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { amount, merchant, category, type, paymentMethod } = req.body;
+    const { amount, merchant, category, type, paymentMethod, date } = req.body;
     
     if (!amount || !merchant || !category) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
+
+    const todayStr = new Date().toISOString().split('T')[0];
 
     const transaction = new Transaction({
       user: req.user.id,
@@ -30,7 +32,8 @@ router.post('/', authMiddleware, async (req, res) => {
       category,
       type: type || 'Debit',
       paymentMethod: paymentMethod || 'Cash',
-      status: 'Success'
+      status: 'Success',
+      date: date || todayStr
     });
 
     await transaction.save();
@@ -43,9 +46,10 @@ router.post('/', authMiddleware, async (req, res) => {
 // Fake UPI Payment Simulation
 router.post('/upi-pay', authMiddleware, async (req, res) => {
   try {
-    const { amount, merchant, category, location } = req.body;
+    const { amount, merchant, category, location, date } = req.body;
 
     const user = await User.findById(req.user.id);
+    const todayStr = new Date().toISOString().split('T')[0];
     
     // Check if enough balance
     if (user.walletBalance < amount) {
@@ -78,7 +82,8 @@ router.post('/upi-pay', authMiddleware, async (req, res) => {
       paymentMethod: 'UPI',
       type: 'Debit',
       status: 'Success',
-      location: location || 'Unknown'
+      location: location || 'Unknown',
+      date: date || todayStr
     });
     await transaction.save();
 
@@ -89,6 +94,32 @@ router.post('/upi-pay', authMiddleware, async (req, res) => {
       limitWarning 
     });
 
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Generic Add Expense (No UPI validation)
+router.post('/add', authMiddleware, async (req, res) => {
+  try {
+    const { amount, merchant, category, type, date } = req.body;
+    
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    const transaction = new Transaction({
+      user: req.user.id,
+      amount: Number(amount),
+      category: category || 'Other',
+      merchant: merchant || 'Manual Entry',
+      paymentMethod: 'Cash',
+      type: type || 'Debit',
+      status: 'Success',
+      location: 'Unknown',
+      date: date || todayStr
+    });
+    await transaction.save();
+
+    res.status(201).json({ message: 'Transaction added successfully', transaction });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }

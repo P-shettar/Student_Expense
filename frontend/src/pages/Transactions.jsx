@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { Search, Filter, Loader2, Calendar } from 'lucide-react';
@@ -9,11 +9,101 @@ const FADE_UP = {
   show: { opacity: 1, y: 0, transition: { type: 'spring' } }
 };
 
+function normalizeCategory(raw) {
+  const map = {
+    "food & dining": "Food",
+    "food":          "Food",
+    "groceries":     "Groceries",
+    "transport":     "Transport",
+    "entertainment": "Entertainment",
+    "shopping":      "Shopping",
+    "health":        "Health",
+    "utilities":     "Utilities",
+    "income":        "Income",
+  }
+  return map[raw?.toLowerCase().trim()] ?? "Other";
+}
+
 export default function Transactions() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
+  const fileRef = useRef(null);
+
+  const handleImport = (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+
+    const resetInput = () => { e.target.value = null; };
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target.result;
+      const lines = text.split('\n');
+      if (lines.length < 2) {
+        resetInput();
+        return;
+      }
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      
+      const newTxns = lines.slice(1).map(line => {
+        if (!line.trim()) return null;
+        const values = line.split(',');
+        return headers.reduce((obj, h, i) => {
+          obj[h] = values[i]?.trim() || '';
+          return obj;
+        }, {});
+      }).filter(Boolean);
+
+      let imported = 0;
+      const allowedCategories = ['Food', 'Transport', 'Entertainment', 'Shopping', 'Utilities', 'Other'];
+
+      for (const row of newTxns) {
+        const amount = parseFloat(row.amount || row.withdrawal || 0);
+        if (!isNaN(amount) && amount > 0) {
+          const category = normalizeCategory(row.category);
+
+          let dateStr = row.date;
+          if (dateStr) {
+            const [year, month, day] = dateStr.split('-').map(Number);
+            const date = new Date(year, month - 1, day);
+            if (isNaN(date.getTime())) {
+              console.warn('Invalid date in row:', row);
+              continue; // skip bad rows, don't use today
+            }
+            // dateStr is good to use
+          } else {
+            console.warn('Missing date in row:', row);
+            continue; // skip bad rows, don't use today
+          }
+
+          try {
+            await axios.post('http://localhost:5000/api/transactions', {
+              amount,
+              merchant: row.merchant || row.description || row.payee || 'Unknown',
+              category,
+              type: (row.type || 'debit').toLowerCase() === 'credit' ? 'Credit' : 'Debit',
+              paymentMethod: row.paymentmode || row.paymentmethod || 'UPI',
+              date: dateStr
+            }, { headers: { Authorization: localStorage.getItem('token') }});
+            imported++;
+          } catch(err) {
+            console.error('Import error for row', row, err.response?.data || err);
+          }
+        }
+      }
+      if (imported > 0) {
+        alert(`Successfully imported ${imported} transactions!\nAI Categorisation (Claude 3.5 Sonnet) will automatically run in the background to tag merchants.`);
+        window.dispatchEvent(new Event('transaction-added'));
+      } else {
+        alert('No valid transactions found to import. Please check your CSV format.');
+      }
+      resetInput();
+    };
+    reader.onerror = resetInput;
+    reader.readAsText(file);
+  };
 
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -72,6 +162,14 @@ export default function Transactions() {
             <option value="Debit">Debit</option>
             <option value="Credit">Credit</option>
           </select>
+          
+          <input type="file" accept=".csv" ref={fileRef} className="hidden" onChange={handleImport} />
+          <button 
+            onClick={() => fileRef.current?.click()} 
+            className="bg-[var(--color-primary)] hover:bg-[#7e76ff] text-white rounded-xl px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap shadow-lg shadow-[var(--color-primary)]/20"
+          >
+            Import CSV
+          </button>
         </div>
       </motion.div>
 
@@ -105,7 +203,7 @@ export default function Transactions() {
                     </td>
                     <td className="p-4 text-slate-300 text-sm">{tx.category || 'Other'}</td>
                     <td className="p-4 text-slate-400 text-sm flex items-center gap-2">
-                      <Calendar size={14} /> {new Date(tx.createdAt).toLocaleDateString()}
+                      <Calendar size={14} /> {tx.date || new Date(tx.createdAt).toISOString().split('T')[0]}
                     </td>
                     <td className="p-4 text-slate-300 text-sm">{tx.paymentMethod || 'Cash'}</td>
                     <td className={clsx("p-4 pr-6 text-right font-mono font-bold", tx.type === 'Debit' ? 'text-[var(--color-danger)]' : 'text-[var(--color-secondary)]')}>

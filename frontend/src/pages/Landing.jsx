@@ -4,10 +4,28 @@ import { BrainCircuit, LineChart, ShieldCheck } from 'lucide-react';
 
 export default function Landing() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen text-center space-y-12 bg-[var(--color-dark-bg)] px-6 relative overflow-hidden">
+    <div className="flex flex-col items-center pt-8 pb-20 min-h-screen text-center space-y-12 bg-[var(--color-dark-bg)] px-6 relative overflow-x-hidden">
       {/* Background Glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[var(--color-primary)] opacity-20 blur-[120px]"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-[var(--color-secondary)] opacity-10 blur-[120px]"></div>
+      <div className="absolute top-0 left-[-10%] w-[40%] h-[40%] rounded-full bg-[var(--color-primary)] opacity-20 blur-[120px] pointer-events-none"></div>
+      <div className="absolute bottom-0 right-[-10%] w-[40%] h-[40%] rounded-full bg-[var(--color-secondary)] opacity-10 blur-[120px] pointer-events-none"></div>
+
+      {/* Header */}
+      <header className="w-full max-w-6xl flex justify-between items-center z-20 py-4 px-6 rounded-2xl glass-panel mb-8">
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[var(--color-primary)] to-[var(--color-secondary)] flex items-center justify-center shadow-[0_0_15px_var(--color-primary-glow)]">
+            <span className="font-sora font-bold text-white text-xl">S</span>
+          </div>
+          <span className="font-sora font-bold text-xl text-white tracking-wide">SpendSense</span>
+        </div>
+        <div className="flex gap-4">
+          <Link to="/login" className="px-6 py-2 glass-button text-white rounded-xl font-sora font-medium hover-lift">
+            Log In
+          </Link>
+          <Link to="/login" className="px-6 py-2 bg-[var(--color-primary)] hover:bg-[#7e76ff] text-white rounded-xl font-sora font-medium hover-lift shadow-[0_0_15px_var(--color-primary-glow)]">
+            Sign Up
+          </Link>
+        </div>
+      </header>
 
       <motion.div 
         initial={{ opacity: 0, y: 20 }}

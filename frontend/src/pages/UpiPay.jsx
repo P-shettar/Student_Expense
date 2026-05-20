@@ -14,7 +14,7 @@ export default function UpiPay() {
   // Modal states
   const [showSendModal, setShowSendModal] = useState(false);
   const [sendStep, setSendStep] = useState(1); // 1: Search, 2: Amount, 3: Processing, 4: Success
-  const [sendData, setSendData] = useState({ merchant: '', amount: '' });
+  const [sendData, setSendData] = useState({ merchant: '', amount: '', category: 'Other' });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -37,7 +37,7 @@ export default function UpiPay() {
     try {
       const token = localStorage.getItem('token');
       const res = await axios.post('http://localhost:5000/api/transactions/upi-pay', 
-        { amount: Number(sendData.amount), merchant: sendData.merchant || 'Unknown', category: 'Other' },
+        { amount: Number(sendData.amount), merchant: sendData.merchant || 'Unknown', category: sendData.category || 'Other' },
         { headers: { Authorization: token } }
       );
       if (res.data.limitWarning) {
@@ -52,7 +52,24 @@ export default function UpiPay() {
 
   const closeSendModal = () => {
     setShowSendModal(false);
-    setTimeout(() => { setSendStep(1); setSendData({ merchant: '', amount: '' }); }, 300);
+    setTimeout(() => { setSendStep(1); setSendData({ merchant: '', amount: '', category: 'Other' }); }, 300);
+  };
+
+  const handleAddFunds = async () => {
+    const amtStr = prompt("Enter amount to add to your simulated wallet (₹):", "1000");
+    const amt = parseFloat(amtStr);
+    if (!isNaN(amt) && amt > 0) {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.post('http://localhost:5000/api/auth/add-funds', { amount: amt }, {
+          headers: { Authorization: token }
+        });
+        setBalance(res.data.newBalance);
+        alert(`Successfully added ₹${amt} to your simulated wallet!`);
+      } catch (err) {
+        alert('Failed to add funds.');
+      }
+    }
   };
 
   return (
@@ -61,15 +78,18 @@ export default function UpiPay() {
       <div className="flex flex-col items-center pt-8">
         <VirtualCard balance={balance} userName={user?.name || 'User'} />
         
-        <div className="mt-10 flex gap-4 w-full max-w-md">
+        <div className="mt-10 flex gap-4 w-full max-w-lg">
+          <button 
+            onClick={handleAddFunds}
+            className="flex-1 bg-white hover:bg-slate-200 text-black py-4 rounded-2xl font-sora font-semibold flex items-center justify-center hover-lift transition-colors"
+          >
+            + Add Funds
+          </button>
           <button 
             onClick={() => setShowSendModal(true)}
             className="flex-1 bg-[var(--color-primary)] hover:bg-[#7e76ff] text-white py-4 rounded-2xl font-sora font-semibold flex items-center justify-center gap-2 hover-lift shadow-[0_0_20px_var(--color-primary-glow)]"
           >
             <Send size={20} /> Send Money
-          </button>
-          <button className="flex-1 glass-button py-4 rounded-2xl font-sora font-semibold flex items-center justify-center gap-2 hover-lift text-slate-300 hover:text-white hover:bg-white/10 transition-colors">
-            <ScanLine size={20} /> Scan QR
           </button>
         </div>
       </div>
@@ -117,7 +137,7 @@ export default function UpiPay() {
               </div>
 
               {/* Content area */}
-              <div className="flex-1 p-6 relative">
+              <div className="flex-1 p-4 sm:p-6 relative overflow-y-auto">
                 
                 {sendStep === 1 && (
                   <motion.div initial={{x:20, opacity:0}} animate={{x:0, opacity:1}} className="space-y-6">
@@ -153,17 +173,37 @@ export default function UpiPay() {
                 )}
 
                 {sendStep === 2 && (
-                  <motion.div initial={{x:20, opacity:0}} animate={{x:0, opacity:1}} className="flex flex-col h-full">
-                    <div className="text-center mb-8">
-                      <p className="text-slate-400 mb-2">Sending to {sendData.merchant}</p>
-                      <div className="flex justify-center items-center gap-1 font-mono text-5xl font-bold text-white">
+                  <motion.div initial={{x:20, opacity:0}} animate={{x:0, opacity:1}} className="flex flex-col min-h-full">
+                    <div className="text-center mb-4">
+                      <p className="text-slate-400 mb-1">Sending to {sendData.merchant}</p>
+                      <div className="flex justify-center items-center gap-1 font-mono text-4xl sm:text-5xl font-bold text-white">
                         <span>₹</span>
                         <span>{sendData.amount || '0'}</span>
                       </div>
                     </div>
 
+                    {/* Category Selection */}
+                    <div className="mt-auto mb-4">
+                      <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2 pl-1">Category</p>
+                      <div className="flex overflow-x-auto gap-2 pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                        {['Food', 'Shopping', 'Transport', 'Entertainment', 'Utilities', 'Other'].map(cat => (
+                          <button
+                            key={cat}
+                            onClick={() => setSendData(s => ({ ...s, category: cat }))}
+                            className={`whitespace-nowrap px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                              sendData.category === cat 
+                                ? 'bg-[var(--color-primary)] text-white shadow-lg' 
+                                : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     {/* Numpad */}
-                    <div className="grid grid-cols-3 gap-3 mt-auto mb-6">
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
                       {[1,2,3,4,5,6,7,8,9,'.',0,'<'].map((key, i) => (
                         <button 
                           key={i}
@@ -171,7 +211,7 @@ export default function UpiPay() {
                             if(key === '<') setSendData(s => ({...s, amount: s.amount.slice(0,-1)}));
                             else setSendData(s => ({...s, amount: s.amount + key}));
                           }}
-                          className="bg-white/5 hover:bg-white/10 rounded-2xl h-16 text-2xl font-mono text-white active-press"
+                          className="bg-white/5 hover:bg-white/10 rounded-2xl h-12 sm:h-14 text-2xl font-mono text-white active-press"
                         >
                           {key}
                         </button>

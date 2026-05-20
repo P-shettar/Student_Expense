@@ -5,7 +5,7 @@ import QuickAddModal from './QuickAddModal';
 
 export default function TopBar() {
   const location = useLocation();
-  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
   
   // Format page title based on path
   const getPageTitle = () => {
@@ -44,7 +44,7 @@ export default function TopBar() {
 
         {/* Quick Add Expense */}
         <button 
-          onClick={() => setIsQuickAddOpen(true)}
+          onClick={() => setShowQuickAdd(true)}
           className="hidden sm:flex items-center gap-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white px-4 py-2 rounded-lg transition-colors font-medium text-sm"
         >
           <Plus size={18} />
@@ -53,9 +53,8 @@ export default function TopBar() {
       </div>
 
       <QuickAddModal 
-        isOpen={isQuickAddOpen} 
-        onClose={() => setIsQuickAddOpen(false)} 
-        onSuccess={() => {}}
+        isOpen={showQuickAdd} 
+        onClose={() => setShowQuickAdd(false)} 
       />
     </header>
   );

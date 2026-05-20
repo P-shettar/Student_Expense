@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from pymongo import MongoClient
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor, IsolationForest
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.cluster import KMeans
 from mlxtend.frequent_patterns import apriori, association_rules
 from mlxtend.preprocessing import TransactionEncoder
@@ -86,11 +86,21 @@ def analyze_outliers(user_id: str):
     df = pd.DataFrame(data)
     X = df[['amount']]
 
-    model = IsolationForest(contamination=0.05, random_state=42)
-    df['anomaly'] = model.fit_predict(X)
+    # K-Means for Anomaly Detection
+    n_clusters = min(3, len(df))
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+    kmeans.fit(X)
+    
+    # Calculate distance of each point to its cluster centroid
+    distances = kmeans.transform(X)
+    min_distances = np.min(distances, axis=1)
+    
+    # Flag top 5% as outliers
+    threshold = np.percentile(min_distances, 95)
+    df['anomaly'] = min_distances > threshold
 
-    # Filter out outliers (anomaly == -1)
-    outliers = df[df['anomaly'] == -1]
+    # Filter out outliers
+    outliers = df[df['anomaly'] == True]
     
     results = []
     for _, row in outliers.iterrows():

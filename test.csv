@@ -1,0 +1,3 @@
+amount,merchant,category,type,paymentmode
+150,Amazon,Shopping,Debit,UPI
+2000,Salary,Other,Credit,Cash

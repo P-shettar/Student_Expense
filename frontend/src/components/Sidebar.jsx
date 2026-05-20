@@ -15,6 +15,7 @@ import {
   QrCode
 } from 'lucide-react';
 import clsx from 'clsx';
+import SettingsModal from './SettingsModal';
 
 const NAV_ITEMS = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -127,10 +129,10 @@ export default function Sidebar() {
             {!collapsed && <span className="font-semibold whitespace-nowrap">Quick Pay</span>}
           </Link>
           
-          <Link to="/settings" className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
+          <button onClick={() => setShowSettings(true)} className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
             <Settings size={20} className="shrink-0" />
             {!collapsed && <span className="font-medium">Settings</span>}
-          </Link>
+          </button>
           
           <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors">
             <LogOut size={20} className="shrink-0" />
@@ -138,6 +140,8 @@ export default function Sidebar() {
           </button>
         </div>
       </motion.aside>
+
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
 
       {/* Mobile Bottom Tab Bar */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 glass-panel border-t border-white/10 p-2 z-50 flex justify-around items-center pb-safe">
